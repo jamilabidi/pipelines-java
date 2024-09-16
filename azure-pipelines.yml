@@ -28,6 +28,13 @@ steps:
       }
   displayName: 'Créer lastVersion.txt si nécessaire'
 
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathtoPublish: '$(Build.ArtifactStagingDirectory)/lastVersion.txt'
+    artifactName: 'versionInfo'
+    publishLocation: 'Container'
+  displayName: 'Publier lastVersion.txt comme artefact'
+
 # télécharger le fichier lastVersion.txt
 - task: DownloadBuildArtifacts@0
   inputs:
