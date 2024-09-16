@@ -10,6 +10,14 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
+# télécharger le fichier lastVersion.txt
+- task: DownloadBuildArtifacts@0
+  inputs:
+    buildType: 'current'
+    downloadType: 'single'
+    artifactName: 'versionInfo'
+    downloadPath: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Télécharger lastVersion.txt'
 
 # Étape pour incrémenter la version dans le fichier version.txt
 - task: PowerShell@2
@@ -98,3 +106,10 @@ steps:
     # Pousser les modifications vers la branche main
     git push origin HEAD:main
   displayName: 'Valider et pousser le fichier de version'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathtoPublish: '$(Build.ArtifactStagingDirectory)/lastVersion.txt'
+    artifactName: 'versionInfo'
+    publishLocation: 'Container'
+  displayName: 'Publier lastVersion.txt comme artefact'
