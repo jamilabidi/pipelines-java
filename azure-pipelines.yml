@@ -5,6 +5,7 @@ trigger:
   paths:
     exclude:
     - version.txt
+    - build_version.json
 
 pool:
   vmImage: 'ubuntu-latest'
