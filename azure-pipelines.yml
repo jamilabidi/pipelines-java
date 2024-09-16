@@ -6,136 +6,135 @@ trigger:
     exclude:
     - version.txt
     - build_version.json
+
 pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-
-#Si lastVersion.txt n'existe pas déjà, créer avec une version initiale
+# Create lastVersion.txt if it doesn't exist
 - task: PowerShell@2
   inputs:
     targetType: 'inline'
     script: |
-      # Chemin du fichier lastVersion.txt
       $lastVersionFilePath = "$(Build.ArtifactStagingDirectory)/lastVersion.txt"
-
-      # Si le fichier n'existe pas, le créer avec une version initiale
       if (-Not (Test-Path $lastVersionFilePath)) {
-          echo "Création du fichier lastVersion.txt avec la version initiale 1.0.0"
+          Write-Host "Creating lastVersion.txt with initial version 1.0.0"
           Set-Content -Path $lastVersionFilePath -Value "1.0.0"
       } else {
-          echo "Le fichier lastVersion.txt existe déjà."
+          Write-Host "lastVersion.txt already exists."
       }
-  displayName: 'Créer lastVersion.txt si nécessaire'
+  displayName: 'Create lastVersion.txt if necessary'
 
+# Publish lastVersion.txt as an artifact
 - task: PublishBuildArtifacts@1
   inputs:
     pathtoPublish: '$(Build.ArtifactStagingDirectory)/lastVersion.txt'
     artifactName: 'versionInfo'
     publishLocation: 'Container'
-  displayName: 'Publier lastVersion.txt comme artefact'
+  displayName: 'Publish lastVersion.txt as artifact'
 
-# télécharger le fichier lastVersion.txt
+# Download lastVersion.txt
 - task: DownloadBuildArtifacts@0
   inputs:
     buildType: 'current'
     downloadType: 'single'
     artifactName: 'versionInfo'
     downloadPath: '$(Build.ArtifactStagingDirectory)'
-  displayName: 'Télécharger lastVersion.txt'
+  displayName: 'Download lastVersion.txt'
 
-# Étape pour incrémenter la version dans le fichier version.txt
+# Increment version in version.txt
 - task: PowerShell@2
   inputs:
     targetType: 'inline'
     script: |
-      # Chemin vers le fichier version.txt
       $versionFilePath = "$(Build.SourcesDirectory)/version.txt"
+      $lastVersionFilePath = "$(Build.ArtifactStagingDirectory)/versionInfo/lastVersion.txt"
       
-      # Lire la version actuelle à partir du fichier version.txt
-      $version = Get-Content $versionFilePath
+      if (Test-Path $versionFilePath) {
+          $version = Get-Content $versionFilePath
+      } else {
+          $version = "1.0.0"
+          Set-Content -Path $versionFilePath -Value $version
+      }
       
-      # Diviser la version en parties : majeure, mineure, patch
       $versionParts = $version -split '\.'
       $major = [int]$versionParts[0]
       $minor = [int]$versionParts[1]
       $patch = [int]$versionParts[2]
       
-      # Lire la dernière version utilisée depuis le fichier pour comparaison
-      if (Test-Path "$(Build.ArtifactStagingDirectory)/lastVersion.txt") {
-        $lastVersion = Get-Content "$(Build.ArtifactStagingDirectory)/lastVersion.txt"
+      if (Test-Path $lastVersionFilePath) {
+        $lastVersion = Get-Content $lastVersionFilePath
         $lastVersionParts = $lastVersion -split '\.'
         $lastMajor = [int]$lastVersionParts[0]
         $lastMinor = [int]$lastVersionParts[1]
+        $lastPatch = [int]$lastVersionParts[2]
       } else {
-        # Si aucun historique, initialiser avec la version actuelle
         $lastMajor = $major
         $lastMinor = $minor
+        $lastPatch = $patch
       }
       
-      # Afficher la version actuelle
-      echo "Version actuelle : $major.$minor.$patch"
+      Write-Host "Current version: $major.$minor.$patch"
+      Write-Host "Last version: $lastMajor.$lastMinor.$lastPatch"
       
-      # Si le numéro majeur a changé, réinitialiser mineur et patch
-      if ($major -ne $lastMajor) {
-          echo "Incrémentation du numéro majeur et réinitialisation du mineur et du patch..."
+      # Check for major version increment
+      if ($major -gt $lastMajor) {
+          Write-Host "Major version was incremented manually."
           $minor = 0
           $patch = 0
       }
-      # Sinon, si le numéro mineur a changé, réinitialiser le patch
-      elseif ($minor -ne $lastMinor) {
-          echo "Incrémentation du numéro mineur et réinitialisation du patch..."
+      # Check for minor version increment
+      elseif ($minor -gt $lastMinor) {
+          Write-Host "Minor version was incremented manually."
           $patch = 0
-      } else {
-          echo "Aucune modification du numéro majeur ou mineur, incrémentation du patch..."
+      }
+      # If no manual changes, increment patch
+      elseif ($major -eq $lastMajor -and $minor -eq $lastMinor) {
+          Write-Host "Incrementing patch version..."
           $patch++
       }
+      # Fallback for unexpected scenarios
+      else {
+          Write-Host "Unexpected version change. Using the version from version.txt."
+      }
 
-
-      # Construire la nouvelle version
       $newVersion = "$major.$minor.$patch"
-
-      # Afficher la nouvelle version
-      echo "Nouvelle version : $newVersion"
+      Write-Host "New version: $newVersion"
       
-      # Mettre à jour le fichier version.txt avec la nouvelle version
       Set-Content -Path $versionFilePath -Value $newVersion
+      Set-Content -Path $lastVersionFilePath -Value $newVersion
       
-      # Enregistrer la nouvelle version et les nouveaux numéros majeur et mineur dans les variables de build
-      echo "##vso[task.setvariable variable=version]$newVersion"
-      echo "##vso[task.setvariable variable=LAST_MAJOR]$major"
-      echo "##vso[task.setvariable variable=LAST_MINOR]$minor"
-  displayName: 'Incrémenter la version dans version.txt'
+      Write-Host "##vso[task.setvariable variable=version]$newVersion"
+      Write-Host "##vso[task.setvariable variable=LAST_MAJOR]$major"
+      Write-Host "##vso[task.setvariable variable=LAST_MINOR]$minor"
+  displayName: 'Increment version in version.txt'
 
-# Étape pour valider et pousser les modifications dans GitHub
+# Commit and push changes to GitHub
 - script: |
-    git config --global user.name "jamil"
-    git config --global user.email "abidijamil@gmail.com"
+    git config --global user.name "Azure DevOps Pipeline"
+    git config --global user.email "azuredevops@example.com"
     git remote set-url origin "https://$(GITHUB_TOKEN)@github.com/jamilabidi/pipelines-java"
 
-    # Sauvegarder temporairement les modifications locales
-    git stash
+    git fetch origin
+    git checkout main
+    git pull origin main
 
-    # Tirer les dernières modifications de la branche distante avant de pousser
-    git pull origin main --rebase
-
-    # Restaurer les modifications locales après le pull
-    git stash pop
-    
-    # Ajouter les modifications dans version.txt
     git add version.txt
     
-    # Valider les modifications
-    git commit -m "Incrémentation de la version à $(version)"
-    
-    # Pousser les modifications vers la branche main
-    git push origin HEAD:main
-  displayName: 'Valider et pousser le fichier de version'
+    if git diff --staged --quiet; then
+      echo "No changes to commit"
+    else
+      git commit -m "Increment version to $(version)"
+      git push origin main
+    fi
+  displayName: 'Commit and push version file'
+  env:
+    GITHUB_TOKEN: $(GITHUB_TOKEN)
 
-#sauvegarder lastversion en tant qu'artifact
+# Publish lastVersion.txt as an artifact (again, to update it)
 - task: PublishBuildArtifacts@1
   inputs:
-    pathtoPublish: '$(Build.ArtifactStagingDirectory)/lastVersion.txt'
+    pathtoPublish: '$(Build.ArtifactStagingDirectory)/versionInfo/lastVersion.txt'
     artifactName: 'versionInfo'
     publishLocation: 'Container'
-  displayName: 'Publier lastVersion.txt comme artefact'
+  displayName: 'Update lastVersion.txt artifact'
