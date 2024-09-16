@@ -10,6 +10,24 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
+
+#Si lastVersion.txt n'existe pas déjà, créer avec une version initiale
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Chemin du fichier lastVersion.txt
+      $lastVersionFilePath = "$(Build.ArtifactStagingDirectory)/lastVersion.txt"
+
+      # Si le fichier n'existe pas, le créer avec une version initiale
+      if (-Not (Test-Path $lastVersionFilePath)) {
+          echo "Création du fichier lastVersion.txt avec la version initiale 1.0.0"
+          Set-Content -Path $lastVersionFilePath -Value "1.0.0"
+      } else {
+          echo "Le fichier lastVersion.txt existe déjà."
+      }
+  displayName: 'Créer lastVersion.txt si nécessaire'
+
 # télécharger le fichier lastVersion.txt
 - task: DownloadBuildArtifacts@0
   inputs:
@@ -107,6 +125,7 @@ steps:
     git push origin HEAD:main
   displayName: 'Valider et pousser le fichier de version'
 
+#sauvegarder lastversion en tant qu'artifact
 - task: PublishBuildArtifacts@1
   inputs:
     pathtoPublish: '$(Build.ArtifactStagingDirectory)/lastVersion.txt'
