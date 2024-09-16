@@ -28,22 +28,22 @@ steps:
       $minor = [int]$versionParts[1]
       $patch = [int]$versionParts[2]
       
-      # Lire la dernière version majeure et mineure de la build précédente (si disponible)
-      $lastMajor = [int](Get-Variable -Name 'LAST_MAJOR' -ValueOnly -ErrorAction SilentlyContinue)
-      $lastMinor = [int](Get-Variable -Name 'LAST_MINOR' -ValueOnly -ErrorAction SilentlyContinue)
-      
-      # Si les versions précédentes ne sont pas disponibles, initialiser avec les versions actuelles
-      if (-not $lastMajor) {
-          $lastMajor = $major
-      }
-      if (-not $lastMinor) {
-          $lastMinor = $minor
+      # Lire la dernière version utilisée depuis le fichier pour comparaison
+      if (Test-Path "$(Build.ArtifactStagingDirectory)/lastVersion.txt") {
+        $lastVersion = Get-Content "$(Build.ArtifactStagingDirectory)/lastVersion.txt"
+        $lastVersionParts = $lastVersion -split '\.'
+        $lastMajor = [int]$lastVersionParts[0]
+        $lastMinor = [int]$lastVersionParts[1]
+      } else {
+        # Si aucun historique, initialiser avec la version actuelle
+        $lastMajor = $major
+        $lastMinor = $minor
       }
       
       # Afficher la version actuelle
       echo "Version actuelle : $major.$minor.$patch"
       
-      # Si le numéro majeur a changé, réinitialiser à la fois le mineur et le patch
+      # Si le numéro majeur a changé, réinitialiser mineur et patch
       if ($major -ne $lastMajor) {
           echo "Incrémentation du numéro majeur et réinitialisation du mineur et du patch..."
           $minor = 0
@@ -57,6 +57,7 @@ steps:
           echo "Aucune modification du numéro majeur ou mineur, incrémentation du patch..."
           $patch++
       }
+
 
       # Construire la nouvelle version
       $newVersion = "$major.$minor.$patch"
