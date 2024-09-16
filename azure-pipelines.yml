@@ -59,10 +59,16 @@ steps:
     git config --global user.name "jamil"
     git config --global user.email "abidijamil@gmail.com"
     git remote set-url origin "https://$(GITHUB_TOKEN)@github.com/jamilabidi/pipelines-java"
-
+    
+    # Sauvegarder temporairement les modifications locales
+    git stash
+    
     # Tirer les dernières modifications de la branche distante avant de pousser
     git pull origin main --rebase
 
+    # Restaurer les modifications locales après le pull
+    git stash pop
+    
     # Ajouter les modifications dans version.txt
     git add version.txt
     
